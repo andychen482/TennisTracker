@@ -209,100 +209,101 @@ if __name__ == '__main__':
             y_pred_buffer = y_pred_buffer[-buffer_size:]
 
     #assert video_len == len(tracknet_pred_dict['Frame']), 'Prediction length mismatch'
-    # Test on TrackNetV3 (TrackNet + InpaintNet)
-    if inpaintnet is not None:
-        inpaintnet.eval()
-        seq_len = inpaintnet_seq_len
-        tracknet_pred_dict['Inpaint_Mask'] = generate_inpaint_mask(tracknet_pred_dict, th_h=h*0.05)
-        inpaint_pred_dict = {'Frame':[], 'X':[], 'Y':[], 'Visibility':[]}
+    # # Test on TrackNetV3 (TrackNet + InpaintNet)
+    # if inpaintnet is not None:
+    #     inpaintnet.eval()
+    #     seq_len = inpaintnet_seq_len
+    #     tracknet_pred_dict['Inpaint_Mask'] = generate_inpaint_mask(tracknet_pred_dict, th_h=h*0.05)
+    #     inpaint_pred_dict = {'Frame':[], 'X':[], 'Y':[], 'Visibility':[]}
 
-        if args.eval_mode == 'nonoverlap':
-            # Create dataset with non-overlap sampling
-            dataset = Shuttlecock_Trajectory_Dataset(seq_len=seq_len, sliding_step=seq_len, data_mode='coordinate', pred_dict=tracknet_pred_dict, padding=True)
-            data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers, drop_last=False)
+    #     if args.eval_mode == 'nonoverlap':
+    #         # Create dataset with non-overlap sampling
+    #         dataset = Shuttlecock_Trajectory_Dataset(seq_len=seq_len, sliding_step=seq_len, data_mode='coordinate', pred_dict=tracknet_pred_dict, padding=True)
+    #         data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers, drop_last=False)
 
-            for step, (i, coor_pred, inpaint_mask) in enumerate(tqdm(data_loader)):
-                coor_pred, inpaint_mask = coor_pred.float(), inpaint_mask.float()
-                with torch.no_grad():
-                    coor_inpaint = inpaintnet(coor_pred.cuda(), inpaint_mask.cuda()).detach().cpu()
-                    coor_inpaint = coor_inpaint * inpaint_mask + coor_pred * (1-inpaint_mask) # replace predicted coordinates with inpainted coordinates
+    #         for step, (i, coor_pred, inpaint_mask) in enumerate(tqdm(data_loader)):
+    #             coor_pred, inpaint_mask = coor_pred.float(), inpaint_mask.float()
+    #             with torch.no_grad():
+    #                 coor_inpaint = inpaintnet(coor_pred.cuda(), inpaint_mask.cuda()).detach().cpu()
+    #                 coor_inpaint = coor_inpaint * inpaint_mask + coor_pred * (1-inpaint_mask) # replace predicted coordinates with inpainted coordinates
                 
-                # Thresholding
-                th_mask = ((coor_inpaint[:, :, 0] < COOR_TH) & (coor_inpaint[:, :, 1] < COOR_TH))
-                coor_inpaint[th_mask] = 0.
+    #             # Thresholding
+    #             th_mask = ((coor_inpaint[:, :, 0] < COOR_TH) & (coor_inpaint[:, :, 1] < COOR_TH))
+    #             coor_inpaint[th_mask] = 0.
                 
-                # Predict
-                tmp_pred = predict(i, c_pred=coor_inpaint, img_scaler=img_scaler)
-                for key in tmp_pred.keys():
-                    inpaint_pred_dict[key].extend(tmp_pred[key])
+    #             # Predict
+    #             tmp_pred = predict(i, c_pred=coor_inpaint, img_scaler=img_scaler)
+    #             for key in tmp_pred.keys():
+    #                 inpaint_pred_dict[key].extend(tmp_pred[key])
                 
-        else:
-            # Create dataset with overlap sampling for temporal ensemble
-            dataset = Shuttlecock_Trajectory_Dataset(seq_len=seq_len, sliding_step=1, data_mode='coordinate', pred_dict=tracknet_pred_dict)
-            data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers, drop_last=False)
-            weight = get_ensemble_weight(seq_len, args.eval_mode)
+    #     else:
+    #         # Create dataset with overlap sampling for temporal ensemble
+    #         dataset = Shuttlecock_Trajectory_Dataset(seq_len=seq_len, sliding_step=1, data_mode='coordinate', pred_dict=tracknet_pred_dict)
+    #         data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=num_workers, drop_last=False)
+    #         weight = get_ensemble_weight(seq_len, args.eval_mode)
 
-            # Init buffer params
-            num_sample, sample_count = len(dataset), 0
-            buffer_size = seq_len - 1
-            batch_i = torch.arange(seq_len) # [0, 1, 2, 3, 4, 5, 6, 7]
-            frame_i = torch.arange(seq_len-1, -1, -1) # [7, 6, 5, 4, 3, 2, 1, 0]
-            coor_inpaint_buffer = torch.zeros((buffer_size, seq_len, 2), dtype=torch.float32)
+    #         # Init buffer params
+    #         num_sample, sample_count = len(dataset), 0
+    #         buffer_size = seq_len - 1
+    #         batch_i = torch.arange(seq_len) # [0, 1, 2, 3, 4, 5, 6, 7]
+    #         frame_i = torch.arange(seq_len-1, -1, -1) # [7, 6, 5, 4, 3, 2, 1, 0]
+    #         coor_inpaint_buffer = torch.zeros((buffer_size, seq_len, 2), dtype=torch.float32)
             
-            for step, (i, coor_pred, inpaint_mask) in enumerate(tqdm(data_loader)):
-                coor_pred, inpaint_mask = coor_pred.float(), inpaint_mask.float()
-                b_size = i.shape[0]
-                with torch.no_grad():
-                    coor_inpaint = inpaintnet(coor_pred.cuda(), inpaint_mask.cuda()).detach().cpu()
-                    coor_inpaint = coor_inpaint * inpaint_mask + coor_pred * (1-inpaint_mask)
+    #         for step, (i, coor_pred, inpaint_mask) in enumerate(tqdm(data_loader)):
+    #             coor_pred, inpaint_mask = coor_pred.float(), inpaint_mask.float()
+    #             b_size = i.shape[0]
+    #             with torch.no_grad():
+    #                 coor_inpaint = inpaintnet(coor_pred.cuda(), inpaint_mask.cuda()).detach().cpu()
+    #                 coor_inpaint = coor_inpaint * inpaint_mask + coor_pred * (1-inpaint_mask)
                 
-                # Thresholding
-                th_mask = ((coor_inpaint[:, :, 0] < COOR_TH) & (coor_inpaint[:, :, 1] < COOR_TH))
-                coor_inpaint[th_mask] = 0.
+    #             # Thresholding
+    #             th_mask = ((coor_inpaint[:, :, 0] < COOR_TH) & (coor_inpaint[:, :, 1] < COOR_TH))
+    #             coor_inpaint[th_mask] = 0.
 
-                coor_inpaint_buffer = torch.cat((coor_inpaint_buffer, coor_inpaint), dim=0)
-                ensemble_i = torch.empty((0, 1, 2), dtype=torch.float32)
-                ensemble_coor_inpaint = torch.empty((0, 1, 2), dtype=torch.float32)
+    #             coor_inpaint_buffer = torch.cat((coor_inpaint_buffer, coor_inpaint), dim=0)
+    #             ensemble_i = torch.empty((0, 1, 2), dtype=torch.float32)
+    #             ensemble_coor_inpaint = torch.empty((0, 1, 2), dtype=torch.float32)
                 
-                for b in range(b_size):
-                    if sample_count < buffer_size:
-                        # Imcomplete buffer
-                        coor_inpaint = coor_inpaint_buffer[batch_i+b, frame_i].sum(0)
-                        coor_inpaint /= (sample_count+1)
-                    else:
-                        # General case
-                        coor_inpaint = (coor_inpaint_buffer[batch_i+b, frame_i] * weight[:, None]).sum(0)
+    #             for b in range(b_size):
+    #                 if sample_count < buffer_size:
+    #                     # Imcomplete buffer
+    #                     coor_inpaint = coor_inpaint_buffer[batch_i+b, frame_i].sum(0)
+    #                     coor_inpaint /= (sample_count+1)
+    #                 else:
+    #                     # General case
+    #                     coor_inpaint = (coor_inpaint_buffer[batch_i+b, frame_i] * weight[:, None]).sum(0)
                     
-                    ensemble_i = torch.cat((ensemble_i, i[b][0].view(1, 1, 2)), dim=0)
-                    ensemble_coor_inpaint = torch.cat((ensemble_coor_inpaint, coor_inpaint.view(1, 1, 2)), dim=0)
-                    sample_count += 1
+    #                 ensemble_i = torch.cat((ensemble_i, i[b][0].view(1, 1, 2)), dim=0)
+    #                 ensemble_coor_inpaint = torch.cat((ensemble_coor_inpaint, coor_inpaint.view(1, 1, 2)), dim=0)
+    #                 sample_count += 1
 
-                    if sample_count == num_sample:
-                        # Last input sequence
-                        coor_zero_pad = torch.zeros((buffer_size, seq_len, 2), dtype=torch.float32)
-                        coor_inpaint_buffer = torch.cat((coor_inpaint_buffer, coor_zero_pad), dim=0)
+    #                 if sample_count == num_sample:
+    #                     # Last input sequence
+    #                     coor_zero_pad = torch.zeros((buffer_size, seq_len, 2), dtype=torch.float32)
+    #                     coor_inpaint_buffer = torch.cat((coor_inpaint_buffer, coor_zero_pad), dim=0)
                         
-                        for f in range(1, seq_len):
-                            coor_inpaint = coor_inpaint_buffer[batch_i+b+f, frame_i].sum(0)
-                            coor_inpaint /= (seq_len-f)
-                            ensemble_i = torch.cat((ensemble_i, i[-1][f].view(1, 1, 2)), dim=0)
-                            ensemble_coor_inpaint = torch.cat((ensemble_coor_inpaint, coor_inpaint.view(1, 1, 2)), dim=0)
+    #                     for f in range(1, seq_len):
+    #                         coor_inpaint = coor_inpaint_buffer[batch_i+b+f, frame_i].sum(0)
+    #                         coor_inpaint /= (seq_len-f)
+    #                         ensemble_i = torch.cat((ensemble_i, i[-1][f].view(1, 1, 2)), dim=0)
+    #                         ensemble_coor_inpaint = torch.cat((ensemble_coor_inpaint, coor_inpaint.view(1, 1, 2)), dim=0)
 
-                # Thresholding
-                th_mask = ((ensemble_coor_inpaint[:, :, 0] < COOR_TH) & (ensemble_coor_inpaint[:, :, 1] < COOR_TH))
-                ensemble_coor_inpaint[th_mask] = 0.
+    #             # Thresholding
+    #             th_mask = ((ensemble_coor_inpaint[:, :, 0] < COOR_TH) & (ensemble_coor_inpaint[:, :, 1] < COOR_TH))
+    #             ensemble_coor_inpaint[th_mask] = 0.
 
-                # Predict
-                tmp_pred = predict(ensemble_i, c_pred=ensemble_coor_inpaint, img_scaler=img_scaler)
-                for key in tmp_pred.keys():
-                    inpaint_pred_dict[key].extend(tmp_pred[key])
+    #             # Predict
+    #             tmp_pred = predict(ensemble_i, c_pred=ensemble_coor_inpaint, img_scaler=img_scaler)
+    #             for key in tmp_pred.keys():
+    #                 inpaint_pred_dict[key].extend(tmp_pred[key])
                 
-                # Update buffer, keep last predictions for ensemble in next iteration
-                coor_inpaint_buffer = coor_inpaint_buffer[-buffer_size:]
+    #             # Update buffer, keep last predictions for ensemble in next iteration
+    #             coor_inpaint_buffer = coor_inpaint_buffer[-buffer_size:]
         
 
     # Write csv file
-    pred_dict = inpaint_pred_dict if inpaintnet is not None else tracknet_pred_dict
+    # pred_dict = inpaint_pred_dict if inpaintnet is not None else tracknet_pred_dict
+    pred_dict = tracknet_pred_dict
     write_pred_csv(pred_dict, save_file=out_csv_file)
 
     # Write video with predicted coordinates
