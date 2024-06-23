@@ -1,5 +1,9 @@
 # TennisTracker
 
+![](https://github.com/andychen482/TennisTracker/blob/main/gif/tennis.gif)
+
+Currently models in development.
+
 ## TrackNetV2 for tennis court
 Detect corners on close side, perform homography to find all tennis court points.
 Calculate transformation matrix.
