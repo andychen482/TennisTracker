@@ -1,3 +1,8 @@
+'''
+Code to take an image of a court, run houghline transforms,
+merge overlapping lines, and display the result
+'''
+
 import math
 import numpy as np
 import cv2
