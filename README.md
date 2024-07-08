@@ -1,6 +1,6 @@
 # TennisTracker
 
-![](https://github.com/andychen482/TennisTracker/blob/main/gif/tennis.gif)
+![](https://github.com/andychen482/TennisTracker/blob/main/gif/jacksock_cut_traj-ezgif.com-video-to-gif-converter.gif)
 
 Currently models in development.
 
